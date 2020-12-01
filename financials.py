@@ -18,37 +18,62 @@ per_mile_insurance_cost = 0.05 * dollar / (ureg.mile)
 # electric status quo
 per_mile_electricity_cost = 0.45 * per_mile_fuel_cost
 per_mile_electric_maintenance_cost = 0.04 * dollar / (ureg.mile)
-per_mile_electric_energy_use = 600 * ureg.kWh / (500 * ureg.mile) # based on Tesla semi
+# https://lynceans.org/wp-content/uploads/2020/04/Tesla-Semi-converted.pdf
+per_mile_electric_energy_use = 900 * ureg.kWh / (600 * ureg.mile) # based on Tesla semi https://electrek.co/2018/05/02/tesla-semi-production-version-range-increase-elon-musk/
 
 # proposal
 pgh_to_chi = 431 * ureg.miles
 
-proportion_to_electric = 0.7
-added_weight_factor = 1.3 # todo, fudge factor
+proportion_to_electric = 0.85
 depletion_factor = 0.8 # how much capacity it has after full cycles
 battery_price_per_kwh = 1200 * dollar / (5.2 * ureg.kWh) # based on used Tesla battery prices
 battery_price_per_kwh = (300 * dollar / (120 * ureg.amp * ureg.hour * 12.8 * ureg.volt)).to('1/kWh') # based on https://www.alibaba.com/product-detail/deep-cycle-long-life-lifepo4-batteries_62245071040.html?spm=a2700.7724857.normalList.93.25113891P874Zg
 battery_price_per_kwh = (32 * dollar / (105 * ureg.amp * ureg.hour * 3.2 * ureg.volt)).to('1/kWh') # based on https://www.alibaba.com/product-detail/3-2V100Ah-lithium-iron-phosphate-battery_1600064520018.html?spm=a2700.7724857.videoBannerStyleB_top.9.25113891P874Zg
 # battery_price_per_kwh = (27 * dollar / (90 * ureg.amp * ureg.hour * 3.2 * ureg.volt)).to('1/kWh') # based on https://www.alibaba.com/product-detail/New-graphene-lithium-iron-phosphate-battery_62174779869.html?spm=a2700.7724857.normalList.85.25113891P874Zg
-battery_price_per_kwh = (13 * dollar / (10 * ureg.amp * ureg.hour * 2.4 * ureg.volt)).to('1/kWh') # https://www.alibaba.com/product-detail/LITHIUM-TITANATE-BATTERY-32145-2-4V_62467696954.html?spm=a2700.galleryofferlist.topad_creative.d_image.68121d683pILmp&fullFirstScreen=true
-# battery_price_per_kwh = (37 * dollar / (50 * ureg.amp * ureg.hour * 3.2 * ureg.volt)).to('1/kWh') # https://www.alibaba.com/product-detail/Cylindrical-32700-battery-32650-lifepo4-3_62387635956.html?spm=a2700.galleryofferlist.normal_offer.d_title.66224c67RFquit
+# battery_price_per_kwh = (13 * dollar / (10 * ureg.amp * ureg.hour * 2.4 * ureg.volt)).to('1/kWh') # https://www.alibaba.com/product-detail/LITHIUM-TITANATE-BATTERY-32145-2-4V_62467696954.html?spm=a2700.galleryofferlist.topad_creative.d_image.68121d683pILmp&fullFirstScreen=true
+battery_price_per_kwh = (63 * dollar / (272 * ureg.amp * ureg.hour * 3.2 * ureg.volt)).to('1/kWh') # https://www.alibaba.com/product-detail/Graphene-lithium-iron-phosphate-battery-3_1600131559793.html
 
 print("battery price per kwh", battery_price_per_kwh)
-battery_capacity = proportion_to_electric * per_mile_electric_energy_use * pgh_to_chi * added_weight_factor / depletion_factor
-battery_price = battery_price_per_kwh * battery_capacity
+
+# iteratively get capacity, since more weight means need for more capacity
+added_weight_factor = 1.18
+resultant_weight_factor = 1
+base_truck_weight = 70000 * ureg.pound # https://ops.fhwa.dot.gov/freight/freight_analysis/nat_freight_stats/docs/10factsfigures/table3_3.htm
+
+while abs(added_weight_factor - resultant_weight_factor) > 0.00001:
+    added_weight_factor = resultant_weight_factor
+    battery_capacity = proportion_to_electric * per_mile_electric_energy_use * pgh_to_chi * added_weight_factor / depletion_factor
+    battery_price = battery_price_per_kwh * battery_capacity
+
+    lfp_density = (272 * ureg.amp * ureg.hour * 3.2 * ureg.volt) / (5.4 * ureg.kg) # https://www.alibaba.com/product-detail/Graphene-lithium-iron-phosphate-battery-3_1600131559793.html
+    lfp_battery_weight = battery_capacity / lfp_density
+
+    resultant_weight_factor = (base_truck_weight + lfp_battery_weight) / base_truck_weight
+
+print("added weight factor", (base_truck_weight + lfp_battery_weight) / base_truck_weight, added_weight_factor)
+print("LFP energy density", lfp_density.to('kWh / kg'))
+print("battery capacity", battery_capacity)
+print("lfp weight", lfp_battery_weight.to('lb'))
 
 # operating costs
 # single 53' trailer
 sixth_wheel_per_mile_fuel_cost = (per_mile_fuel_cost * (1-proportion_to_electric) + \
                                     per_mile_electricity_cost * (proportion_to_electric)) * added_weight_factor
-sixth_wheel_per_mile_maintenance_cost = (per_mile_maintenance_cost * (1-proportion_to_electric) + \
+# fudge factor because not all wear is from engine. Axles and other parts are uniformly worn
+sixth_wheel_per_mile_maintenance_cost = 1.3 * (per_mile_maintenance_cost * (1-proportion_to_electric) + \
                                     per_mile_electric_maintenance_cost * (proportion_to_electric)) * added_weight_factor
 sixth_wheel_per_mile_insurance_cost = 0.04 * dollar / (ureg.mile)
 
 # PRICING
-delta = (per_mile_fuel_cost + per_mile_maintenance_cost + per_mile_insurance_cost) - \
+# toll inceREASE IS 0.07 for LCV
+delta = -0.07 / ureg.mile + (per_mile_fuel_cost + per_mile_maintenance_cost + per_mile_insurance_cost) - \
         (sixth_wheel_per_mile_fuel_cost + sixth_wheel_per_mile_maintenance_cost + sixth_wheel_per_mile_insurance_cost)
-sixth_wheel_per_mile_rental_cost = 0.8 * delta
+prop_take = 0.7
+sixth_wheel_per_mile_rental_cost = prop_take * delta
+
+print("rental cost per mile", sixth_wheel_per_mile_rental_cost)
+print("customer savings per mile", delta * (1-prop_take))
+print("overall savings per trip", delta * pgh_to_chi)
 
 sixth_wheel_per_mile_cost = per_mile_us_shipping_cost - delta + \
                             + sixth_wheel_per_mile_rental_cost
@@ -61,8 +86,8 @@ print("Potential driver wage increase", driver_savings)
 sixth_wheel_capital_expense = battery_price * 1.3 # roughly based on Tesla
 print("Cost of each sixth wheel", sixth_wheel_capital_expense)
 
-sixth_wheel_untilization = 0.5 # proportion of day on road 
-sixth_wheel_speed = 45 * ureg.mph
+sixth_wheel_untilization = 0.8 # proportion of day on road 
+sixth_wheel_speed = 40 * ureg.mph
 sixth_wheel_miles_per_year = (sixth_wheel_untilization * sixth_wheel_speed * ureg.year).to('mile')
 sixth_wheel_annual_revenue_no_yard = (sixth_wheel_miles_per_year * sixth_wheel_per_mile_rental_cost).to('dimensionless')
 
@@ -72,24 +97,25 @@ print("annual revenue w/ no yard work", sixth_wheel_annual_revenue_no_yard)
 # battery_lifespan = 6000 * pgh_to_chi #based on https://www.fortresspower.com/how-to-calculate-the-energy-cost-of-different-battery-chemistries/#
 battery_lifespan = 2000 * pgh_to_chi #based on https://www.alibaba.com/product-detail/deep-cycle-long-life-lifepo4-batteries_62245071040.html?spm=a2700.7724857.normalList.93.25113891P874Zg
 battery_lifespan = 3000 * pgh_to_chi #based on https://www.alibaba.com/product-detail/3-2V100Ah-lithium-iron-phosphate-battery_1600064520018.html?spm=a2700.7724857.videoBannerStyleB_top.9.25113891P874Zg
-# battery_lifespan = 10000 * pgh_to_chi #based on https://www.alibaba.com/product-detail/New-graphene-lithium-iron-phosphate-battery_62174779869.html?spm=a2700.7724857.normalList.85.25113891P874Zg
-battery_lifespan = 25000 * pgh_to_chi #based on https://www.alibaba.com/product-detail/LITHIUM-TITANATE-BATTERY-32145-2-4V_62467696954.html?spm=a2700.galleryofferlist.topad_creative.d_image.68121d683pILmp&fullFirstScreen=true
-# battery_lifespan = 4000 * pgh_to_chi #based on https://www.alibaba.com/product-detail/Cylindrical-32700-battery-32650-lifepo4-3_62387635956.html?spm=a2700.galleryofferlist.normal_offer.d_title.66224c67RFquit
+battery_lifespan = 10000 * pgh_to_chi #based on https://www.alibaba.com/product-detail/New-graphene-lithium-iron-phosphate-battery_62174779869.html?spm=a2700.7724857.normalList.85.25113891P874Zg
+# battery_lifespan = 25000 * pgh_to_chi #based on https://www.alibaba.com/product-detail/LITHIUM-TITANATE-BATTERY-32145-2-4V_62467696954.html?spm=a2700.galleryofferlist.topad_creative.d_image.68121d683pILmp&fullFirstScreen=true
+battery_lifespan = 10000 * pgh_to_chi #based on https://www.alibaba.com/product-detail/Graphene-lithium-iron-phosphate-battery-3_1600131559793.html
 print("annual miles", sixth_wheel_miles_per_year)
 print("battery life", ureg.year * battery_lifespan / sixth_wheel_miles_per_year)
 print("lifetime value", sixth_wheel_per_mile_rental_cost * sixth_wheel_miles_per_year * (battery_lifespan / sixth_wheel_miles_per_year))
 
-sixth_wheel_margins = 0.5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               # TODO: Very important and hard to know - what are the 
+sixth_wheel_margins = 0.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               # TODO: Very important and hard to know - what are the 
 print("sixth wheel payback period", ureg.year * sixth_wheel_capital_expense / (sixth_wheel_annual_revenue_no_yard * sixth_wheel_margins))
 
-pgh_to_chi_daily_trucks = 25e3
+pgh_to_chi_daily_trucks = 25000
 pgh_to_chi_tam_no_yard = 365 * pgh_to_chi_daily_trucks * pgh_to_chi * sixth_wheel_per_mile_rental_cost
 print("PGH to CHI no yard TAM", pgh_to_chi_tam_no_yard)
 
 # YARD PRICING
+# Yard jockey carbon impact
 detention_time_per_trip = 4 * ureg.hours
-percent_at_endpoints = 0.3
-trips_per_year = pgh_to_chi_daily_trucks * 365 * percent_at_endpoints 
+percent_time_improvement = 0.7
+trips_per_year = pgh_to_chi_daily_trucks * 365 * percent_time_improvement
 hourly_wages = 24.48 * dollar / ureg.hour
 pgh_to_chi_tam_yard = detention_time_per_trip * hourly_wages * trips_per_year
 # NOTE: making the sixth wheels autonomous yard jockeys will improve margins on this market
@@ -116,13 +142,9 @@ print("sixth wheel payback period, autonomy", ureg.year * sixth_wheel_capital_ex
 pgh_to_chi_tam_no_yard = 365 * pgh_to_chi_daily_trucks * pgh_to_chi * sixth_wheel_per_mile_rental_cost_autonomy
 print("PGH to CHI no yard TAM, + autonomy", pgh_to_chi_tam_no_yard)
 
-lfp_density = (90 * ureg.amp * ureg.hour * 3.2 * ureg.volt) / (1.85 * ureg.kg) # https://www.alibaba.com/product-detail/New-graphene-lithium-iron-phosphate-battery_62174779869.html?spm=a2700.7724857.normalList.85.25113891P874Zg
-lfp_battery_weight = battery_capacity / lfp_density
-print("battery capacity", battery_capacity)
-print("lfp weight", lfp_battery_weight.to('lb'))
 
 # https://www.alibaba.com/product-detail/New-graphene-lithium-iron-phosphate-battery_62174779869.html?spm=a2700.7724857.normalList.85.25113891P874Zg
-single_battery_volume = 30*226*125*(ureg.mm**3)
+single_battery_volume = 205*72*175*(ureg.mm**3)
 single_battery_price = 27 * dollar
 num_batteries = battery_price / single_battery_price
 total_battery_volume = num_batteries*single_battery_volume
