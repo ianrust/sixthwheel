@@ -7,7 +7,6 @@ authors = ["Ian Rust <iancrust@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.7"
 Pint = "^0.16.1"
-pybullet = "^3.0.6"
 Panda3D = "^1.10.7"
 numpy = "^1.19.4"
 notebook = "^6.1.5"
