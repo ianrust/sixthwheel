@@ -96,19 +96,19 @@ def run(values):
 
     # iteratively get capacity, since more battery weight means need for more capacity
     added_weight = 10000 * ureg.pound
+
+    # How weight impacts fuel https://www.internationaltrucks.com/en/blog/fuel-economy-weight
+    # 0.5% increase per 1000lbs
     percentage_fuel_per_pound = (0.5 / 100) / (1000 * ureg.pound)
     resultant_weight = added_weight * 0.9
-    # proportional weight of components (as a proportion of battery cost)
-    additional_component_prop_weight = 0.25
+    # weight of components  (structure, power electronics, motors, etc)
+    additional_component_weight = 2500 * ureg.pound
 
     # https://ops.fhwa.dot.gov/freight/freight_analysis/nat_freight_stats/docs/10factsfigures/table3_3.htm
     # https://www.freightpros.com/blog/less-than-truckload/
     # https://www.terrybryant.com/how-much-does-semi-truck-weigh#:~:text=Semi%2Dtractors%20weigh%20up%20to,haul%20up%20to%2034%2C000%20pounds.
     base_truck_weight = 70000 * ureg.pound
     percent_under_base_weight = 0.8
-
-    # How weight impacts fuel https://www.internationaltrucks.com/en/blog/fuel-economy-weight
-    # 0.5% increase per 1000lbs
 
     while abs(added_weight - resultant_weight) > 1 * ureg.pound:
         added_weight = resultant_weight
@@ -123,7 +123,7 @@ def run(values):
 
         battery_weight = battery_capacity / battery_specific_density
 
-        resultant_weight = battery_weight * (1 + additional_component_prop_weight)
+        resultant_weight = battery_weight + additional_component_weight
 
     added_weight = resultant_weight
 
@@ -140,7 +140,9 @@ def run(values):
         + per_mile_electric_maintenance_cost * (proportion_to_electric)
     ) * added_weight_factor
     # Assume this is slightly lower because of ADAS features like ABS, ACC, anti-skid
-    sixth_wheel_per_mile_insurance_cost = 0.8 * per_mile_insurance_cost
+    sixth_wheel_per_mile_insurance_cost = (
+        values["insurance multiple"] * per_mile_insurance_cost
+    )
 
     # PRICING
     delta = (
@@ -212,7 +214,7 @@ def run(values):
 
     payback_period = (
         ureg.year
-        * sixth_wheel_capital_expense
+        * (sixth_wheel_capital_expense - additional_component_cost)
         / (sixth_wheel_annual_revenue * sixth_wheel_margins)
     )
 
@@ -244,5 +246,6 @@ def run(values):
         "rate of return": rate_of_return,
         "payback period": payback_period,
         "single rental cost": single_rental_cost,
+        "single rental savings": delta * (1 - prop_take) * intended_range,
         "fuel discount": fuel_discount,
     }
