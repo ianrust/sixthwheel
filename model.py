@@ -28,7 +28,7 @@ def run(values):
     per_mile_electricity_cost = values["electric per mile"] * dollar / (ureg.mile)
 
     # source: https://apps.dana.com/commercial-vehicles/tco/
-    per_mile_electric_maintenance_cost = 0.3 * per_mile_maintenance_cost
+    per_mile_electric_maintenance_cost = 0.5 * per_mile_maintenance_cost
 
     # based on Tesla semi
     # source: https://electrek.co/2018/05/02/tesla-semi-production-version-range-increase-elon-musk/
@@ -205,7 +205,7 @@ def run(values):
 
     rate_of_return = 100 * (
         (
-            (lifetime_value * sixth_wheel_margins + additional_component_cost)
+            (lifetime_value * sixth_wheel_margins + 0.7 * additional_component_cost)
             / sixth_wheel_capital_expense
         )
         ** (1 / battery_years)
@@ -214,7 +214,7 @@ def run(values):
 
     payback_period = (
         ureg.year
-        * (sixth_wheel_capital_expense - additional_component_cost)
+        * (sixth_wheel_capital_expense - 0.7 * additional_component_cost)
         / (sixth_wheel_annual_revenue * sixth_wheel_margins)
     )
 
@@ -234,6 +234,7 @@ def run(values):
             (battery_capacity / lfp_vol_density) / (110 * ureg.inch * 100 * ureg.inch)
         ).to("feet"),
         "battery capacity": battery_capacity,
+        "battery cost": battery_price,
         "added weight factor": added_weight_factor,
         "6w per mile rental cost": sixth_wheel_per_mile_rental_cost,
         "potential overall savings": overall_savings_no_cut,
@@ -248,4 +249,7 @@ def run(values):
         "single rental cost": single_rental_cost,
         "single rental savings": delta * (1 - prop_take) * intended_range,
         "fuel discount": fuel_discount,
+        "electric power use": (
+            proportion_to_electric * per_mile_electric_energy_use * sixth_wheel_speed
+        ).to("kilowatt"),
     }

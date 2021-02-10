@@ -49,6 +49,8 @@ layout = [
     [sg.Text("Battery Capacity (kwh): "), sg.Text("100000", key="battery_capacity")],
     [sg.Text("Lifetime Value: "), sg.Text("100000", key="lifetime_value")],
     [sg.Text("Customer savings on trip: "), sg.Text("100000", key="customer_savings")],
+    [sg.Text("Vehicle Cost: "), sg.Text("100000", key="vehicle_cost")],
+    [sg.Text("Battery Cost: "), sg.Text("100000", key="battery_cost")],
 ]
 
 window = sg.Window("6W financial model", layout)
@@ -73,5 +75,6 @@ while True:
     window.Element("battery_capacity").update(result["battery capacity"])
     window.Element("lifetime_value").update(result["lifetime value"])
     window.Element("customer_savings").update(result["single rental savings"])
-
+    window.Element("vehicle_cost").update(result["single 6w cost"])
+    window.Element("battery_cost").update(result["battery cost"])
 window.close()
