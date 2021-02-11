@@ -35,7 +35,7 @@ def run(values):
     # alt source: https://lynceans.org/wp-content/uploads/2020/04/Tesla-Semi-converted.pdf
     # Important note - this says a Tesla semi will have ~20% lower operating costs,
     # Tesla range optimism is 27% https://www.caranddriver.com/features/a33824052/adjustment-factor-tesla-uses-for-big-epa-range-numbers/
-    per_mile_electric_energy_use = 947 * ureg.kWh / (600 * ureg.mile * 0.77)
+    per_mile_electric_energy_use = 947 * ureg.kWh / (600 * ureg.mile * 0.73)
 
     intended_range = values["range"] * ureg.miles
 
@@ -80,7 +80,8 @@ def run(values):
     per_mile_toll_increase = values["toll increase"] * dollar / ureg.mile
 
     # avg speed when on road
-    sixth_wheel_speed = 55 * ureg.mph
+    # https://ops.fhwa.dot.gov/freight/freight_analysis/nat_freight_stats/docs/10factsfigures/table3_8.htm
+    sixth_wheel_speed = 57.5 * ureg.mph
 
     # proportion of day on road
     # 30 min charge per trip, 60 min waiting in yard for next trip
