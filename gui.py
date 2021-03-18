@@ -18,14 +18,15 @@ def slider_element(name, default, ranger, step):
 
 layout = [
     slider_element("diesel per mile", 0.38, (0, 1.0), 0.001),
-    slider_element("electric per mile", 0.17, (0, 1.0), 0.001),
+    slider_element("electric per kwh", 0.03, (0, 0.3), 0.001),
+    slider_element("battery per kwh", 200, (1, 600), 1),
     slider_element("proportion electric", 0.7, (0, 1.0), 0.001),
-    slider_element("take", 0.6, (0, 1.0), 0.001),
-    slider_element("toll increase", 0.01, (0, 0.20), 0.001),
+    slider_element("take", 0.6, (0.01, 1.0), 0.001),
+    slider_element("toll increase", 0.0, (0, 0.20), 0.001),
     slider_element("range", 150, (10, 800), 10),
-    slider_element("battery cycle life", 2000, (0, 12000), 100),
+    slider_element("battery cycle life", 4000, (0, 40000), 100),
     slider_element("depletion at end of life", 0.8, (0, 1.0), 0.001),
-    slider_element("additional component cost", 15000, (0, 25000), 1000),
+    slider_element("additional component cost", 30000, (0, 45000), 1000),
     slider_element(
         # maintenance + tires
         "annual operating cost",
@@ -47,10 +48,19 @@ layout = [
     ],
     [sg.Text("Fuel discount: "), sg.Text("100000", key="fuel_discount")],
     [sg.Text("Battery Capacity (kwh): "), sg.Text("100000", key="battery_capacity")],
-    [sg.Text("Lifetime Value: "), sg.Text("100000", key="lifetime_value")],
-    [sg.Text("Customer savings on trip: "), sg.Text("100000", key="customer_savings")],
-    [sg.Text("Vehicle Cost: "), sg.Text("100000", key="vehicle_cost")],
-    [sg.Text("Battery Cost: "), sg.Text("100000", key="battery_cost")],
+    [sg.Text("Lifetime Value ($): "), sg.Text("100000", key="lifetime_value")],
+    [
+        sg.Text("Customer savings on trip ($): "),
+        sg.Text("100000", key="customer_savings"),
+    ],
+    [sg.Text("Vehicle Cost ($): "), sg.Text("100000", key="vehicle_cost")],
+    [sg.Text("Battery Cost ($): "), sg.Text("100000", key="battery_cost")],
+    [sg.Text("Single Unit ARR ($): "), sg.Text("100000", key="arr")],
+    [sg.Text("Per mile savings (%): "), sg.Text("100000", key="per_mile_savings")],
+    [
+        sg.Text("Per mile savings with solar (%): "),
+        sg.Text("100000", key="per_mile_savings_solar"),
+    ],
 ]
 
 window = sg.Window("6W financial model", layout)
@@ -75,6 +85,11 @@ while True:
     window.Element("battery_capacity").update(result["battery capacity"])
     window.Element("lifetime_value").update(result["lifetime value"])
     window.Element("customer_savings").update(result["single rental savings"])
+    window.Element("per_mile_savings").update(result["customer overall savings"])
+    window.Element("per_mile_savings_solar").update(
+        result["customer overall savings with solar"]
+    )
     window.Element("vehicle_cost").update(result["single 6w cost"])
     window.Element("battery_cost").update(result["battery cost"])
+    window.Element("arr").update(result["arr"])
 window.close()

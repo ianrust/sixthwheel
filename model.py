@@ -17,16 +17,6 @@ def run(values):
     per_mile_maintenance_cost = 0.12 * dollar / (ureg.mile)
     per_mile_insurance_cost = 0.05 * dollar / (ureg.mile)
 
-    # Status Quo (Electric)
-
-    # source: https://apps.dana.com/commercial-vehicles/tco/
-    # alt source: https://avt.inl.gov/sites/default/files/pdf/fsev/costs.pdf]
-    # PPA
-    # https://pv-magazine-usa.com/2020/02/04/utility-scale-solar-ppa-pricing-down-4-7-in-2019-with-13-6-gw-of-corporate-deals-signed/#:~:text=Utility%2Dscale%20solar%20power%20purchase,kWh%2C%20according%20to%20LevelTen%20Energy.
-    # + transmission costs
-    # https://spectrum.ieee.org/energywise/energy/policy/how-to-predict-a-utilitys-transmission-and-distribution-costs-count-customers-served
-    per_mile_electricity_cost = values["electric per mile"] * dollar / (ureg.mile)
-
     # source: https://apps.dana.com/commercial-vehicles/tco/
     per_mile_electric_maintenance_cost = 0.5 * per_mile_maintenance_cost
 
@@ -36,6 +26,21 @@ def run(values):
     # Important note - this says a Tesla semi will have ~20% lower operating costs,
     # Tesla range optimism is 27% https://www.caranddriver.com/features/a33824052/adjustment-factor-tesla-uses-for-big-epa-range-numbers/
     per_mile_electric_energy_use = 947 * ureg.kWh / (600 * ureg.mile * 0.73)
+    print(per_mile_electric_energy_use)
+    # Status Quo (Electric)
+
+    # source: https://apps.dana.com/commercial-vehicles/tco/
+    # alt source: https://avt.inl.gov/sites/default/files/pdf/fsev/costs.pdf]
+    # PPA
+    # https://pv-magazine-usa.com/2020/02/04/utility-scale-solar-ppa-pricing-down-4-7-in-2019-with-13-6-gw-of-corporate-deals-signed/#:~:text=Utility%2Dscale%20solar%20power%20purchase,kWh%2C%20according%20to%20LevelTen%20Energy.
+    # + transmission costs
+    # https://spectrum.ieee.org/energywise/energy/policy/how-to-predict-a-utilitys-transmission-and-distribution-costs-count-customers-served
+    per_mile_electricity_cost = (
+        values["electric per kwh"]
+        * per_mile_electric_energy_use
+        * dollar
+        / (ureg.kilowatt_hour)
+    )
 
     intended_range = values["range"] * ureg.miles
 
@@ -49,7 +54,10 @@ def run(values):
     # source: https://www.alibaba.com/product-detail/Graphene-lithium-iron-phosphate-battery-3_1600131559793.html
     # battery_price_per_kwh = (63 * dollar / (272 * ureg.amp * ureg.hour * 3.2 * ureg.volt)).to('1/kWh')
     # this price is more realistic
-    battery_price_per_kwh = (80 * dollar / ureg.kilowatt_hour).to("1/kWh")
+    # proterra batteries
+    battery_price_per_kwh = (
+        values["battery per kwh"] * dollar / ureg.kilowatt_hour
+    ).to("1/kWh")
     battery_lifespan = values["battery cycle life"] * intended_range
     depletion_factor = values[
         "depletion at end of life"
@@ -57,7 +65,8 @@ def run(values):
     # battery_specific_density = (
     #     0.9 * (220 * ureg.amp * ureg.hour * 3.2 * ureg.volt) / (5.4 * ureg.kg)
     # )
-    battery_specific_density = 120 * ureg.watt_hours / ureg.kg
+    # proterra batteries
+    battery_specific_density = 170 * ureg.watt_hours / ureg.kg
     # lfp_vol_density = (272 * ureg.amp * ureg.hour * 3.2 * ureg.volt) / (
     #     205 * ureg.mm * 72 * ureg.mm * 175 * ureg.mm
     # )
@@ -84,13 +93,16 @@ def run(values):
     sixth_wheel_speed = 57.5 * ureg.mph
 
     # proportion of day on road
-    # 30 min charge per trip, 60 min waiting in yard for next trip
     # https://en.wikipedia.org/wiki/Lithium_iron_phosphate_battery
     sixth_wheel_utilization = (
         intended_range
         / sixth_wheel_speed
-        / (intended_range / sixth_wheel_speed + 1.5 * ureg.hour)
+        / (intended_range / sixth_wheel_speed + 1 * ureg.hour)  # 1C
+        * 18
+        / 24
     )
+
+    print("utils", sixth_wheel_utilization)
 
     # cost of components (as a proportion of battery cost), roughly based on Tesla
     additional_component_cost = values["additional component cost"]
@@ -127,6 +139,9 @@ def run(values):
         resultant_weight = battery_weight + additional_component_weight
 
     added_weight = resultant_weight
+
+    print("battery", battery_weight.to("pound"))
+    print("total", added_weight.to("pound"))
 
     added_weight_factor = 1 + percentage_fuel_per_pound * added_weight
     num_batteries = battery_price / single_battery_price
@@ -177,6 +192,15 @@ def run(values):
 
     overall_savings = (
         (per_mile_us_shipping_cost - sixth_wheel_per_mile_cost)
+        / per_mile_us_shipping_cost
+        * 100
+    )
+    overall_savings_with_solar = (
+        (
+            per_mile_us_shipping_cost
+            - sixth_wheel_per_mile_cost
+            + per_mile_electricity_cost
+        )
         / per_mile_us_shipping_cost
         * 100
     )
@@ -234,6 +258,9 @@ def run(values):
         "battery compartment length": (
             (battery_capacity / lfp_vol_density) / (110 * ureg.inch * 100 * ureg.inch)
         ).to("feet"),
+        "battery compartment volume": ((battery_capacity / lfp_vol_density)).to(
+            "meter^3"
+        ),
         "battery capacity": battery_capacity,
         "battery cost": battery_price,
         "added weight factor": added_weight_factor,
@@ -241,6 +268,7 @@ def run(values):
         "potential overall savings": overall_savings_no_cut,
         "potential driver savings": driver_savings_no_cut,
         "customer overall savings": overall_savings,
+        "customer overall savings with solar": overall_savings_with_solar,
         "customer driver savings": driver_savings,
         "single 6w cost": sixth_wheel_capital_expense,
         "years until battery failure": battery_years,
@@ -250,6 +278,7 @@ def run(values):
         "single rental cost": single_rental_cost,
         "single rental savings": delta * (1 - prop_take) * intended_range,
         "fuel discount": fuel_discount,
+        "arr": sixth_wheel_annual_revenue,
         "electric power use": (
             proportion_to_electric * per_mile_electric_energy_use * sixth_wheel_speed
         ).to("kilowatt"),
