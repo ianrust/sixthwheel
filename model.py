@@ -26,7 +26,6 @@ def run(values):
     # Important note - this says a Tesla semi will have ~20% lower operating costs,
     # Tesla range optimism is 27% https://www.caranddriver.com/features/a33824052/adjustment-factor-tesla-uses-for-big-epa-range-numbers/
     per_mile_electric_energy_use = 947 * ureg.kWh / (600 * ureg.mile * 0.73)
-    print(per_mile_electric_energy_use)
     # Status Quo (Electric)
 
     # source: https://apps.dana.com/commercial-vehicles/tco/
@@ -66,11 +65,11 @@ def run(values):
     #     0.9 * (220 * ureg.amp * ureg.hour * 3.2 * ureg.volt) / (5.4 * ureg.kg)
     # )
     # proterra batteries
-    battery_specific_density = 170 * ureg.watt_hours / ureg.kg
+    battery_specific_density = 166 * ureg.watt_hours / ureg.kg
     # lfp_vol_density = (272 * ureg.amp * ureg.hour * 3.2 * ureg.volt) / (
     #     205 * ureg.mm * 72 * ureg.mm * 175 * ureg.mm
     # )
-    lfp_vol_density = 325 * ureg.watt_hours / ureg.liter
+    lfp_vol_density = 300 * ureg.watt_hours / ureg.liter
     single_battery_price = 27 * dollar
 
     # How much work (proportionally) the electric motors will do (1 means 0% diesel, 0 means 100% diesel)
@@ -102,8 +101,6 @@ def run(values):
         / 24
     )
 
-    print("utils", sixth_wheel_utilization)
-
     # cost of components (as a proportion of battery cost), roughly based on Tesla
     additional_component_cost = values["additional component cost"]
 
@@ -115,7 +112,7 @@ def run(values):
     percentage_fuel_per_pound = (0.5 / 100) / (1000 * ureg.pound)
     resultant_weight = added_weight * 0.9
     # weight of components  (structure, power electronics, motors, etc)
-    additional_component_weight = 2500 * ureg.pound
+    additional_component_weight = 4000 * ureg.pound
 
     # https://ops.fhwa.dot.gov/freight/freight_analysis/nat_freight_stats/docs/10factsfigures/table3_3.htm
     # https://www.freightpros.com/blog/less-than-truckload/
@@ -129,7 +126,9 @@ def run(values):
             proportion_to_electric
             * per_mile_electric_energy_use
             * intended_range
-            * (1 + percentage_fuel_per_pound * added_weight)
+            # * (1 + percentage_fuel_per_pound * added_weight)
+            * ((base_truck_weight + added_weight) / base_truck_weight)
+            * (6 / 5)
             / depletion_factor
         )
         battery_price = battery_price_per_kwh * battery_capacity
@@ -140,8 +139,10 @@ def run(values):
 
     added_weight = resultant_weight
 
-    print("battery", battery_weight.to("pound"))
-    print("total", added_weight.to("pound"))
+    print(
+        "load increase",
+        ((base_truck_weight + added_weight) / base_truck_weight) * (6 / 5),
+    )
 
     added_weight_factor = 1 + percentage_fuel_per_pound * added_weight
     num_batteries = battery_price / single_battery_price
@@ -210,6 +211,15 @@ def run(values):
         * 100
     )
 
+    mpg = 7 * ureg.mile / ureg.gallon
+    gpm_status_quo = 1 / mpg
+
+    diesel_emissions = 10.21 * ureg.kg / ureg.gallon
+    lcfs_price = 190 / (1000 * ureg.kg) * 0.8
+    per_mile_lcfs_credit = (
+        gpm_status_quo * proportion_to_electric * diesel_emissions * lcfs_price
+    ).to("1/mile")
+
     #  Capital analysis
     sixth_wheel_capital_expense = battery_price + additional_component_cost
     sixth_wheel_miles_per_year = (
@@ -218,19 +228,40 @@ def run(values):
     sixth_wheel_annual_revenue = (
         sixth_wheel_miles_per_year * sixth_wheel_per_mile_rental_cost
     ).to("dimensionless")
+    sixth_wheel_annual_revenue_credit = (
+        sixth_wheel_miles_per_year
+        * (sixth_wheel_per_mile_rental_cost + per_mile_lcfs_credit)
+    ).to("dimensionless")
     other_annual_operating_cost = values["annual operating cost"]
 
     sixth_wheel_margins = (
         sixth_wheel_annual_revenue - (other_annual_operating_cost)
     ) / sixth_wheel_annual_revenue
 
+    sixth_wheel_margins_credit = (
+        sixth_wheel_annual_revenue_credit - (other_annual_operating_cost)
+    ) / sixth_wheel_annual_revenue_credit
+
     battery_years = battery_lifespan / sixth_wheel_miles_per_year
 
     lifetime_value = battery_years * sixth_wheel_annual_revenue
+    lifetime_value_credit = battery_years * sixth_wheel_annual_revenue_credit
 
     rate_of_return = 100 * (
         (
             (lifetime_value * sixth_wheel_margins + 0.7 * additional_component_cost)
+            / sixth_wheel_capital_expense
+        )
+        ** (1 / battery_years)
+        - 1
+    )
+
+    rate_of_return_credit = 100 * (
+        (
+            (
+                lifetime_value_credit * sixth_wheel_margins_credit
+                + 0.7 * additional_component_cost
+            )
             / sixth_wheel_capital_expense
         )
         ** (1 / battery_years)
@@ -274,6 +305,7 @@ def run(values):
         "years until battery failure": battery_years,
         "lifetime value": lifetime_value,
         "rate of return": rate_of_return,
+        "rate of return with carbon credit": rate_of_return_credit,
         "payback period": payback_period,
         "single rental cost": single_rental_cost,
         "single rental savings": delta * (1 - prop_take) * intended_range,

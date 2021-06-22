@@ -38,6 +38,10 @@ layout = [
     [sg.Text("Payback period (years): "), sg.Text("100000", key="payback_period")],
     [sg.Text("Rate of return (%): "), sg.Text("100000", key="rate_of_return")],
     [
+        sg.Text("Rate of return with carbon credit (%): "),
+        sg.Text("100000", key="rate_of_return_credit"),
+    ],
+    [
         sg.Text("Battery lifespan (years): "),
         sg.Text("100000", key="years_until_battery_failure"),
     ],
@@ -80,6 +84,9 @@ while True:
         result["years until battery failure"]
     )
     window.Element("rate_of_return").update(result["rate of return"])
+    window.Element("rate_of_return_credit").update(
+        result["rate of return with carbon credit"]
+    )
     window.Element("single_rental_cost").update(result["single rental cost"])
     window.Element("fuel_discount").update(result["fuel discount"])
     window.Element("battery_capacity").update(result["battery capacity"])
