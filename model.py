@@ -1,4 +1,5 @@
 import pint
+import math
 
 ureg = pint.UnitRegistry()
 # ureg.define('dollar = dimensionless')
@@ -11,14 +12,16 @@ def run(values):
     # source: https://www.thetruckersreport.com/infographics/cost-of-trucking/
     # alternate source: https://www.freightwaves.com/news/understanding-total-operating-cost-per-mile#:~:text=Typically%2C%20gross%20fuel%20expense%20averages%20between%20%240.40%2D%240.55%20per%20mile.
     per_mile_us_shipping_cost = 1.38 * dollar / (ureg.mile)
-    per_mile_fuel_cost = values["diesel per mile"] * dollar / (ureg.mile)
+    mpg = 7 * ureg.mile / ureg.gallon
+    diesel_per_mile = (values["diesel per gallon"] / ureg.gallon) / mpg
+    per_mile_fuel_cost = diesel_per_mile * dollar
     per_mile_equipment_cost = 0.24 * dollar / (ureg.mile)
     per_mile_driver_cost = 0.55 * dollar / (ureg.mile)
     per_mile_maintenance_cost = 0.12 * dollar / (ureg.mile)
     per_mile_insurance_cost = 0.05 * dollar / (ureg.mile)
 
     # source: https://apps.dana.com/commercial-vehicles/tco/
-    per_mile_electric_maintenance_cost = 0.5 * per_mile_maintenance_cost
+    per_mile_electric_maintenance_cost = 1.0 * per_mile_maintenance_cost
 
     # based on Tesla semi
     # source: https://electrek.co/2018/05/02/tesla-semi-production-version-range-increase-elon-musk/
@@ -112,13 +115,16 @@ def run(values):
     percentage_fuel_per_pound = (0.5 / 100) / (1000 * ureg.pound)
     resultant_weight = added_weight * 0.9
     # weight of components  (structure, power electronics, motors, etc)
-    additional_component_weight = 4000 * ureg.pound
+    additional_component_weight = 6000 * ureg.pound
 
     # https://ops.fhwa.dot.gov/freight/freight_analysis/nat_freight_stats/docs/10factsfigures/table3_3.htm
     # https://www.freightpros.com/blog/less-than-truckload/
     # https://www.terrybryant.com/how-much-does-semi-truck-weigh#:~:text=Semi%2Dtractors%20weigh%20up%20to,haul%20up%20to%2034%2C000%20pounds.
     base_truck_weight = 70000 * ureg.pound
     percent_under_base_weight = 0.8
+
+    # rolling resistance is about 1/3 of the added axle drag
+    axle_factor = 1 + (2 / 5) * 1 / 3
 
     while abs(added_weight - resultant_weight) > 1 * ureg.pound:
         added_weight = resultant_weight
@@ -128,7 +134,7 @@ def run(values):
             * intended_range
             # * (1 + percentage_fuel_per_pound * added_weight)
             * ((base_truck_weight + added_weight) / base_truck_weight)
-            * (6 / 5)
+            * axle_factor
             / depletion_factor
         )
         battery_price = battery_price_per_kwh * battery_capacity
@@ -139,10 +145,10 @@ def run(values):
 
     added_weight = resultant_weight
 
-    print(
-        "load increase",
-        ((base_truck_weight + added_weight) / base_truck_weight) * (6 / 5),
-    )
+    # print(
+    #     "load increase",
+    #     ((base_truck_weight + added_weight) / base_truck_weight) * axle_factor,
+    # )
 
     added_weight_factor = 1 + percentage_fuel_per_pound * added_weight
     num_batteries = battery_price / single_battery_price
@@ -210,8 +216,6 @@ def run(values):
         / per_mile_driver_cost
         * 100
     )
-
-    mpg = 7 * ureg.mile / ureg.gallon
     gpm_status_quo = 1 / mpg
 
     diesel_emissions = 10.21 * ureg.kg / ureg.gallon
@@ -247,9 +251,23 @@ def run(values):
     lifetime_value = battery_years * sixth_wheel_annual_revenue
     lifetime_value_credit = battery_years * sixth_wheel_annual_revenue_credit
 
+    additional_component_depreciation = values["additional component depreciation"]
+
+    # w/ financing
+    monthly_interest_rate = values["interest rate"] / 1200
+    term_in_months = battery_years * 12
+    monthly_payment = (
+        sixth_wheel_capital_expense
+        * monthly_interest_rate
+        * math.pow(1 + monthly_interest_rate, term_in_months)
+    ) / (math.pow(1 + monthly_interest_rate, term_in_months) - 1)
+
     rate_of_return = 100 * (
         (
-            (lifetime_value * sixth_wheel_margins + 0.7 * additional_component_cost)
+            (
+                lifetime_value * sixth_wheel_margins
+                + (1 - additional_component_depreciation) * additional_component_cost
+            )
             / sixth_wheel_capital_expense
         )
         ** (1 / battery_years)
@@ -260,7 +278,7 @@ def run(values):
         (
             (
                 lifetime_value_credit * sixth_wheel_margins_credit
-                + 0.7 * additional_component_cost
+                + (1 - additional_component_depreciation) * additional_component_cost
             )
             / sixth_wheel_capital_expense
         )
@@ -270,12 +288,14 @@ def run(values):
 
     payback_period = (
         ureg.year
-        * (sixth_wheel_capital_expense - 0.7 * additional_component_cost)
+        * (
+            sixth_wheel_capital_expense
+            - (1 - additional_component_depreciation) * additional_component_cost
+        )
         / (sixth_wheel_annual_revenue * sixth_wheel_margins)
     )
 
     single_rental_cost = sixth_wheel_per_mile_rental_cost * intended_range
-    diesel_mpg = 7 * ureg.mile / ureg.gallon
 
     fuel_discount = (
         100
@@ -311,6 +331,11 @@ def run(values):
         "single rental savings": delta * (1 - prop_take) * intended_range,
         "fuel discount": fuel_discount,
         "arr": sixth_wheel_annual_revenue,
+        "monthly payment": monthly_payment,
+        "annual profit": sixth_wheel_annual_revenue * sixth_wheel_margins
+        - monthly_payment * 12,
+        "annual profit credit": sixth_wheel_annual_revenue_credit * sixth_wheel_margins
+        - monthly_payment * 12,
         "electric power use": (
             proportion_to_electric * per_mile_electric_energy_use * sixth_wheel_speed
         ).to("kilowatt"),

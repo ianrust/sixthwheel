@@ -17,16 +17,18 @@ def slider_element(name, default, ranger, step):
 
 
 layout = [
-    slider_element("diesel per mile", 0.38, (0, 1.0), 0.001),
+    slider_element("diesel per gallon", 3.14, (0, 10.0), 0.001),
     slider_element("electric per kwh", 0.03, (0, 0.3), 0.001),
+    slider_element("interest rate", 4, (0.1, 20), 0.1),
     slider_element("battery per kwh", 200, (1, 600), 1),
-    slider_element("proportion electric", 0.7, (0, 1.0), 0.001),
+    slider_element("proportion electric", 0.7, (0.01, 1.0), 0.001),
     slider_element("take", 0.6, (0.01, 1.0), 0.001),
     slider_element("toll increase", 0.0, (0, 0.20), 0.001),
     slider_element("range", 150, (10, 800), 10),
-    slider_element("battery cycle life", 4000, (0, 40000), 100),
+    slider_element("battery cycle life", 4000, (100, 40000), 100),
     slider_element("depletion at end of life", 0.8, (0, 1.0), 0.001),
-    slider_element("additional component cost", 30000, (0, 45000), 1000),
+    slider_element("additional component cost", 30000, (0, 90000), 1000),
+    slider_element("additional component depreciation", 0.3, (0, 1.0), 0.01),
     slider_element(
         # maintenance + tires
         "annual operating cost",
@@ -60,6 +62,12 @@ layout = [
     [sg.Text("Vehicle Cost ($): "), sg.Text("100000", key="vehicle_cost")],
     [sg.Text("Battery Cost ($): "), sg.Text("100000", key="battery_cost")],
     [sg.Text("Single Unit ARR ($): "), sg.Text("100000", key="arr")],
+    [sg.Text("Single Unit Profit ($): "), sg.Text("100000", key="annual profit")],
+    [
+        sg.Text("Single Unit Profit w/ credit ($): "),
+        sg.Text("100000", key="annual profit credit"),
+    ],
+    [sg.Text("Monthly payment ($): "), sg.Text("100000", key="monthly payment")],
     [sg.Text("Per mile savings (%): "), sg.Text("100000", key="per_mile_savings")],
     [
         sg.Text("Per mile savings with solar (%): "),
@@ -99,4 +107,7 @@ while True:
     window.Element("vehicle_cost").update(result["single 6w cost"])
     window.Element("battery_cost").update(result["battery cost"])
     window.Element("arr").update(result["arr"])
+    window.Element("annual profit").update(result["annual profit"])
+    window.Element("annual profit credit").update(result["annual profit credit"])
+    window.Element("monthly payment").update(result["monthly payment"])
 window.close()
