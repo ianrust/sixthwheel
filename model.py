@@ -150,7 +150,7 @@ def run(values):
     #     ((base_truck_weight + added_weight) / base_truck_weight) * axle_factor,
     # )
 
-    added_weight_factor = 1 + percentage_fuel_per_pound * added_weight
+    added_weight_factor = ((base_truck_weight + added_weight) / base_truck_weight) * axle_factor
     num_batteries = battery_price / single_battery_price
 
     # operating costs, averaged as a funtion of the proportion converted to electricity
@@ -339,4 +339,5 @@ def run(values):
         "electric power use": (
             proportion_to_electric * per_mile_electric_energy_use * sixth_wheel_speed
         ).to("kilowatt"),
+        "energy use": added_weight_factor,
     }

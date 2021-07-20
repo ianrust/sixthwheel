@@ -15,8 +15,7 @@ def slider_element(name, default, ranger, step):
         ),
     ]
 
-
-layout = [
+col1 = [
     slider_element("diesel per gallon", 3.14, (0, 10.0), 0.001),
     slider_element("electric per kwh", 0.03, (0, 0.3), 0.001),
     slider_element("interest rate", 4, (0.1, 20), 0.1),
@@ -36,8 +35,8 @@ layout = [
         (0, 25000),
         1000,
     ),
-    slider_element("insurance multiple", 0.8, (0.0, 3.0), 0.01),
-    [sg.Text("Payback period (years): "), sg.Text("100000", key="payback_period")],
+    slider_element("insurance multiple", 0.8, (0.0, 3.0), 0.01)]
+col2 = [[sg.Text("Payback period (years): "), sg.Text("100000", key="payback_period")],
     [sg.Text("Rate of return (%): "), sg.Text("100000", key="rate_of_return")],
     [
         sg.Text("Rate of return with carbon credit (%): "),
@@ -62,18 +61,21 @@ layout = [
     [sg.Text("Vehicle Cost ($): "), sg.Text("100000", key="vehicle_cost")],
     [sg.Text("Battery Cost ($): "), sg.Text("100000", key="battery_cost")],
     [sg.Text("Single Unit ARR ($): "), sg.Text("100000", key="arr")],
-    [sg.Text("Single Unit Profit ($): "), sg.Text("100000", key="annual profit")],
     [
-        sg.Text("Single Unit Profit w/ credit ($): "),
+        sg.Text("Financed Single Unit Profit w/ credit ($): "),
         sg.Text("100000", key="annual profit credit"),
+    ],[
+        sg.Text("Financed Single Unit Profit w/ no credits ($): "),
+        sg.Text("100000", key="annual profit"),
     ],
     [sg.Text("Monthly payment ($): "), sg.Text("100000", key="monthly payment")],
     [sg.Text("Per mile savings (%): "), sg.Text("100000", key="per_mile_savings")],
     [
-        sg.Text("Per mile savings with solar (%): "),
-        sg.Text("100000", key="per_mile_savings_solar"),
-    ],
-]
+        sg.Text("Energy use vs no 6W (%): "),
+        sg.Text("100000", key="energy use"),
+    ]]
+
+layout = [[sg.Column(col1), sg.Column(col2)]]
 
 window = sg.Window("6W financial model", layout)
 
@@ -101,13 +103,11 @@ while True:
     window.Element("lifetime_value").update(result["lifetime value"])
     window.Element("customer_savings").update(result["single rental savings"])
     window.Element("per_mile_savings").update(result["customer overall savings"])
-    window.Element("per_mile_savings_solar").update(
-        result["customer overall savings with solar"]
-    )
     window.Element("vehicle_cost").update(result["single 6w cost"])
     window.Element("battery_cost").update(result["battery cost"])
     window.Element("arr").update(result["arr"])
     window.Element("annual profit").update(result["annual profit"])
     window.Element("annual profit credit").update(result["annual profit credit"])
     window.Element("monthly payment").update(result["monthly payment"])
+    window.Element("energy use").update(result["energy use"])
 window.close()
